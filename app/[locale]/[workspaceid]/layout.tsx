@@ -159,6 +159,153 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     setChatSettings({
       model: (searchParams.get("model") ||
         workspace?.default_model ||
+        "qwen2.5:3b") as LLMID,
+      prompt:
+        workspace?.default_prompt ||
+        "You are BurakGPT, a friendly Turkish AI assistant created by Burak. You speak Turkish by default, you are helpful, creative, supportive and explain things clearly like a big brother. You never say you are ChatGPT or mention OpenAI.",
+      temperature: workspace?.default_temperature || 0.5,
+      contextLength: workspace?.default_context_length || 4096,
+      includeProfileContext: workspace?.include_profile_context || true,
+      includeWorkspaceInstructions:
+        workspace?.include_workspace_instructions || true,
+      embeddingsProvider:
+        (workspace?.embeddings_provider as "openai" | "local") || "local"
+    })
+
+    setLoading(false)
+  }
+
+  if (loading) {
+    return <Loading />
+  }
+
+  return <Dashboard>{children}</Dashboard>
+}
+    setAssistantImages,
+    setChats,
+    setCollections,
+    setFolders,
+    setFiles,
+    setPresets,
+    setPrompts,
+    setTools,
+    setModels,
+    selectedWorkspace,
+    setSelectedWorkspace,
+    setSelectedChat,
+    setChatMessages,
+    setUserInput,
+    setIsGenerating,
+    setFirstTokenReceived,
+    setChatFiles,
+    setChatImages,
+    setNewMessageFiles,
+    setNewMessageImages,
+    setShowFilesDisplay
+  } = useContext(ChatbotUIContext)
+
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    ;(async () => {
+      const session = (await supabase.auth.getSession()).data.session
+
+      if (!session) {
+        return router.push("/login")
+      } else {
+        await fetchWorkspaceData(workspaceId)
+      }
+    })()
+  }, [])
+
+  useEffect(() => {
+    ;(async () => await fetchWorkspaceData(workspaceId))()
+
+    setUserInput("")
+    setChatMessages([])
+    setSelectedChat(null)
+
+    setIsGenerating(false)
+    setFirstTokenReceived(false)
+
+    setChatFiles([])
+    setChatImages([])
+    setNewMessageFiles([])
+    setNewMessageImages([])
+    setShowFilesDisplay(false)
+  }, [workspaceId])
+
+  const fetchWorkspaceData = async (workspaceId: string) => {
+    setLoading(true)
+
+    const workspace = await getWorkspaceById(workspaceId)
+    setSelectedWorkspace(workspace)
+
+    const assistantData = await getAssistantWorkspacesByWorkspaceId(workspaceId)
+    setAssistants(assistantData.assistants)
+
+    for (const assistant of assistantData.assistants) {
+      let url = ""
+
+      if (assistant.image_path) {
+        url = (await getAssistantImageFromStorage(assistant.image_path)) || ""
+      }
+
+      if (url) {
+        const response = await fetch(url)
+        const blob = await response.blob()
+        const base64 = await convertBlobToBase64(blob)
+
+        setAssistantImages(prev => [
+          ...prev,
+          {
+            assistantId: assistant.id,
+            path: assistant.image_path,
+            base64,
+            url
+          }
+        ])
+      } else {
+        setAssistantImages(prev => [
+          ...prev,
+          {
+            assistantId: assistant.id,
+            path: assistant.image_path,
+            base64: "",
+            url
+          }
+        ])
+      }
+    }
+
+    const chats = await getChatsByWorkspaceId(workspaceId)
+    setChats(chats)
+
+    const collectionData =
+      await getCollectionWorkspacesByWorkspaceId(workspaceId)
+    setCollections(collectionData.collections)
+
+    const folders = await getFoldersByWorkspaceId(workspaceId)
+    setFolders(folders)
+
+    const fileData = await getFileWorkspacesByWorkspaceId(workspaceId)
+    setFiles(fileData.files)
+
+    const presetData = await getPresetWorkspacesByWorkspaceId(workspaceId)
+    setPresets(presetData.presets)
+
+    const promptData = await getPromptWorkspacesByWorkspaceId(workspaceId)
+    setPrompts(promptData.prompts)
+
+    const toolData = await getToolWorkspacesByWorkspaceId(workspaceId)
+    setTools(toolData.tools)
+
+    const modelData = await getModelWorkspacesByWorkspaceId(workspaceId)
+    setModels(modelData.models)
+
+    setChatSettings({
+      model: (searchParams.get("model") ||
+        workspace?.default_model ||
         "gpt-4-1106-preview") as LLMID,
       prompt:
         workspace?.default_prompt ||
