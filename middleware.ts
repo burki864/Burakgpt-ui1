@@ -6,12 +6,18 @@ import i18nConfig from "./i18nConfig"
 export async function middleware(request: NextRequest) {
   const i18nResult = i18nRouter(request, i18nConfig)
   if (i18nResult) return i18nResult
+  
 
   try {
     const { supabase, response } = createClient(request)
 
     const session = await supabase.auth.getSession()
-
+// 🔴 ROOT FALLBACK (session yoksa)
+if (!session.data.session && request.nextUrl.pathname === "/") {
+  return NextResponse.redirect(
+    new URL(`/${i18nConfig.defaultLocale}`, request.url)
+  )
+}
     const redirectToChat = session && request.nextUrl.pathname === "/"
 
     if (redirectToChat) {
